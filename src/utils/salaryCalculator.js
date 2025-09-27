@@ -24,7 +24,8 @@ export const calculateYearlySalary = async (salaryData, year = 2024) => {
         const monthCalendarData = await getProductionCalendarMonth(currentYear, currentMonth + 1)
 
         // Первая выплата января = 0 (не выплачивается)
-        const firstPayDay = adjustPayDate(currentYear, currentMonth, firstPayDate, monthCalendarData)
+        // Используем простую дату без корректировки, так как это нулевая выплата
+        const firstPayDay = new Date(currentYear, currentMonth, firstPayDate)
         results.push({
           date: formatDate(firstPayDay),
           period: `1-${firstPeriodEnd} янв`,
@@ -44,8 +45,9 @@ export const calculateYearlySalary = async (salaryData, year = 2024) => {
         const firstPeriodEndDate = new Date(currentYear, currentMonth, firstPeriodEnd)
         const firstPeriodWorkingDays = countWorkingDaysInPeriod(firstPeriodStart, firstPeriodEndDate, monthCalendarData)
 
-        // Выплата 25 января за первый период января
-        const secondPayDay = adjustPayDate(currentYear, currentMonth, secondPayDate, monthCalendarData)
+        // Выплата 20 января за первый период января
+        // Используем простую дату без корректировки для января
+        const secondPayDay = new Date(currentYear, currentMonth, secondPayDate)
         const secondPayAmount = (salary / totalWorkingDaysInMonth) * firstPeriodWorkingDays
 
         results.push({

@@ -306,6 +306,11 @@ const calculateWorkingDays = (year, weekends, holidays) => {
  * Проверяет, является ли дата выходным днем
  */
 export const isWeekend = (date, calendarData) => {
+  // Проверяем валидность даты
+  if (isNaN(date.getTime())) {
+    return false
+  }
+
   const dateStr = date.toISOString().split('T')[0]
   return calendarData.weekends.some(w => w.date === dateStr)
 }
@@ -314,6 +319,11 @@ export const isWeekend = (date, calendarData) => {
  * Проверяет, является ли дата праздничным днем
  */
 export const isHoliday = (date, calendarData) => {
+  // Проверяем валидность даты
+  if (isNaN(date.getTime())) {
+    return false
+  }
+
   const dateStr = date.toISOString().split('T')[0]
   return calendarData.holidays.some(h => h.date === dateStr)
 }
@@ -322,6 +332,11 @@ export const isHoliday = (date, calendarData) => {
  * Проверяет, является ли дата рабочим днем
  */
 export const isWorkingDay = (date, calendarData) => {
+  // Проверяем валидность даты
+  if (isNaN(date.getTime())) {
+    return false
+  }
+
   const dateStr = date.toISOString().split('T')[0]
   return calendarData.workingDays.some(w => w.date === dateStr)
 }
