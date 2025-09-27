@@ -18,6 +18,48 @@ export const calculateYearlySalary = async (salaryData, year = 2024) => {
     const currentMonth = month
 
     try {
+      // Специальная обработка для января - первая дата = 0 рублей
+      if (month === 0) {
+        // Получаем данные календаря за январь
+        const monthCalendarData = await getProductionCalendarMonth(currentYear, currentMonth + 1)
+
+        // Первая выплата января = 0 (не выплачивается)
+        const firstPayDay = adjustPayDate(currentYear, currentMonth, firstPayDate, monthCalendarData)
+        results.push({
+          date: formatDate(firstPayDay),
+          period: `1-${firstPeriodEnd} янв`,
+          amount: 0,
+          workingDays: 0,
+          totalWorkingDays: 0,
+          monthStats: {},
+          isZeroPayment: true
+        })
+
+        // Вторая выплата января - за первый период января
+        const monthStats = await getWorkingTimeStatistics(currentYear, currentMonth + 1)
+        const totalWorkingDaysInMonth = monthStats.work_days || getWorkingDaysInMonth(currentYear, currentMonth, monthCalendarData)
+
+        // Первый период января
+        const firstPeriodStart = new Date(currentYear, currentMonth, 1)
+        const firstPeriodEndDate = new Date(currentYear, currentMonth, firstPeriodEnd)
+        const firstPeriodWorkingDays = countWorkingDaysInPeriod(firstPeriodStart, firstPeriodEndDate, monthCalendarData)
+
+        // Выплата 25 января за первый период января
+        const secondPayDay = adjustPayDate(currentYear, currentMonth, secondPayDate, monthCalendarData)
+        const secondPayAmount = (salary / totalWorkingDaysInMonth) * firstPeriodWorkingDays
+
+        results.push({
+          date: formatDate(secondPayDay),
+          period: `1-${firstPeriodEnd} янв`,
+          amount: Math.round(secondPayAmount),
+          workingDays: firstPeriodWorkingDays,
+          totalWorkingDays: totalWorkingDaysInMonth,
+          monthStats: monthStats
+        })
+
+        continue // Переходим к следующему месяцу
+      }
+
       // Получаем данные календаря за месяц из API
       const monthCalendarData = await getProductionCalendarMonth(currentYear, currentMonth + 1)
 
@@ -89,6 +131,43 @@ export const calculateYearlySalary = async (salaryData, year = 2024) => {
       const fallbackResult = await calculateMonthFallback(salaryData, currentYear, currentMonth)
       results.push(...fallbackResult)
     }
+  }
+
+  // Добавляем остаток в конце года (остаток от первого периода декабря)
+  try {
+    const decemberCalendarData = await getProductionCalendarMonth(year, 12)
+    const decemberStats = await getWorkingTimeStatistics(year, 12)
+    const decemberTotalWorkingDays = decemberStats.work_days || getWorkingDaysInMonth(year, 11, decemberCalendarData)
+
+    // Первый период декабря (за который уже заплатили в декабре)
+    const decemberFirstPeriodStart = new Date(year, 11, 1)
+    const decemberFirstPeriodEndDate = new Date(year, 11, firstPeriodEnd)
+    const decemberFirstPeriodWorkingDays = countWorkingDaysInPeriod(decemberFirstPeriodStart, decemberFirstPeriodEndDate, decemberCalendarData)
+
+    // Второй период декабря (за который заплатили в январе следующего года)
+    const decemberSecondPeriodStart = new Date(year, 11, firstPeriodEnd + 1)
+    const decemberSecondPeriodEndDate = new Date(year, 12, 0)
+    const decemberSecondPeriodWorkingDays = countWorkingDaysInPeriod(decemberSecondPeriodStart, decemberSecondPeriodEndDate, decemberCalendarData)
+
+    // Рассчитываем остаток
+    // За год должно быть выплачено 12 полных зарплат
+    const expectedTotalForYear = salary * 12
+    const actualTotalPaid = results.reduce((sum, result) => sum + result.amount, 0)
+    const remainder = expectedTotalForYear - actualTotalPaid
+
+    if (remainder > 0) {
+      results.push({
+        date: '31 дек',
+        period: 'Остаток',
+        amount: Math.round(remainder),
+        workingDays: decemberSecondPeriodWorkingDays,
+        totalWorkingDays: decemberTotalWorkingDays,
+        monthStats: {},
+        isRemainder: true
+      })
+    }
+  } catch (error) {
+    console.error('Ошибка расчета остатка:', error)
   }
 
   return results

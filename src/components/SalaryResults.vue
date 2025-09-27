@@ -13,6 +13,10 @@ const props = defineProps({
 const totalStats = computed(() => {
   if (props.results.length === 0) return null
 
+  // Фильтруем только реальные выплаты (не нулевые и не остаток)
+  const realPayments = props.results.filter(r => !r.isZeroPayment && !r.isRemainder)
+  const remainderPayments = props.results.filter(r => r.isRemainder)
+
   const totalAmount = props.results.reduce((sum, result) => sum + result.amount, 0)
   const totalWorkingDays = props.results.reduce((sum, result) => sum + result.workingDays, 0)
   const uniqueMonths = new Set(props.results.map(r => r.period.split(' ')[1])).size
@@ -21,7 +25,9 @@ const totalStats = computed(() => {
     totalAmount,
     totalWorkingDays,
     uniqueMonths,
-    averagePerPayment: Math.round(totalAmount / props.results.length)
+    averagePerPayment: realPayments.length > 0 ? Math.round(totalAmount / realPayments.length) : 0,
+    realPaymentsCount: realPayments.length,
+    remainderAmount: remainderPayments.length > 0 ? remainderPayments[0].amount : 0
   }
 })
 </script>
@@ -48,12 +54,19 @@ const totalStats = computed(() => {
             <div class="text-gray-600">Рабочих дней</div>
           </div>
           <div class="text-center">
-            <div class="text-2xl font-bold text-green-700">{{ totalStats.uniqueMonths }}</div>
-            <div class="text-gray-600">Месяцев</div>
+            <div class="text-2xl font-bold text-green-700">{{ totalStats.realPaymentsCount }}</div>
+            <div class="text-gray-600">Выплат</div>
           </div>
           <div class="text-center">
             <div class="text-2xl font-bold text-green-700">{{ formatCurrency(totalStats.averagePerPayment) }}</div>
             <div class="text-gray-600">Средняя выплата</div>
+          </div>
+        </div>
+
+        <div v-if="totalStats.remainderAmount > 0" class="mt-4 p-3 bg-yellow-100 rounded-lg">
+          <div class="text-center">
+            <div class="text-lg font-bold text-yellow-800">{{ formatCurrency(totalStats.remainderAmount) }}</div>
+            <div class="text-yellow-700 text-sm">Остаток от декабря (выплачивается до конца года)</div>
           </div>
         </div>
       </div>
@@ -71,18 +84,40 @@ const totalStats = computed(() => {
           v-for="(result, index) in results"
           :key="index"
           class="grid grid-cols-4 gap-4 py-2 border-b border-gray-100 last:border-b-0"
+          :class="{
+            'bg-red-50': result.isZeroPayment,
+            'bg-yellow-50': result.isRemainder
+          }"
         >
-          <div class="text-green-700 font-medium">
+          <div class="font-medium" :class="{
+            'text-red-700': result.isZeroPayment,
+            'text-yellow-700': result.isRemainder,
+            'text-green-700': !result.isZeroPayment && !result.isRemainder
+          }">
             {{ result.date }}
           </div>
-          <div class="text-gray-600 text-sm">
+          <div class="text-sm" :class="{
+            'text-red-600': result.isZeroPayment,
+            'text-yellow-600': result.isRemainder,
+            'text-gray-600': !result.isZeroPayment && !result.isRemainder
+          }">
             {{ result.period }}
+            <span v-if="result.isZeroPayment" class="text-xs text-red-500 block">(не выплачивается)</span>
+            <span v-if="result.isRemainder" class="text-xs text-yellow-600 block">(остаток от декабря)</span>
           </div>
-          <div class="text-gray-600 text-sm">
+          <div class="text-sm" :class="{
+            'text-red-600': result.isZeroPayment,
+            'text-yellow-600': result.isRemainder,
+            'text-gray-600': !result.isZeroPayment && !result.isRemainder
+          }">
             {{ result.workingDays }}/{{ result.totalWorkingDays }}
           </div>
-          <div class="text-green-800 font-semibold">
-            {{ formatCurrency(result.amount) }}
+          <div class="font-semibold" :class="{
+            'text-red-800': result.isZeroPayment,
+            'text-yellow-800': result.isRemainder,
+            'text-green-800': !result.isZeroPayment && !result.isRemainder
+          }">
+            {{ result.amount === 0 ? '0 ₽' : formatCurrency(result.amount) }}
           </div>
         </div>
       </div>
